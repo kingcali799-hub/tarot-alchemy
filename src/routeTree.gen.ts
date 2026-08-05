@@ -13,6 +13,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as CardsRouteImport } from './routes/cards'
 import { Route as SpreadsRouteImport } from './routes/spreads'
+import { Route as AuthenticatedJournalRouteImport } from './routes/_authenticated/journal'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -34,18 +35,25 @@ const SpreadsRoute = SpreadsRouteImport.update({
   path: '/spreads',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthenticatedJournalRoute = AuthenticatedJournalRouteImport.update({
+  id: '/_authenticated/journal',
+  path: '/journal',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/cards': typeof CardsRoute
   '/spreads': typeof SpreadsRoute
+  '/journal': typeof AuthenticatedJournalRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/cards': typeof CardsRoute
   '/spreads': typeof SpreadsRoute
+  '/journal': typeof AuthenticatedJournalRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -53,13 +61,20 @@ export interface FileRoutesById {
   '/auth': typeof AuthRoute
   '/cards': typeof CardsRoute
   '/spreads': typeof SpreadsRoute
+  '/_authenticated/journal': typeof AuthenticatedJournalRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/auth' | '/cards' | '/spreads'
+  fullPaths: '/' | '/auth' | '/cards' | '/spreads' | '/journal'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/auth' | '/cards' | '/spreads'
-  id: '__root__' | '/' | '/auth' | '/cards' | '/spreads'
+  to: '/' | '/auth' | '/cards' | '/spreads' | '/journal'
+  id:
+    | '__root__'
+    | '/'
+    | '/auth'
+    | '/cards'
+    | '/spreads'
+    | '/_authenticated/journal'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -67,6 +82,7 @@ export interface RootRouteChildren {
   AuthRoute: typeof AuthRoute
   CardsRoute: typeof CardsRoute
   SpreadsRoute: typeof SpreadsRoute
+  AuthenticatedJournalRoute: typeof AuthenticatedJournalRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -99,6 +115,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SpreadsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_authenticated/journal': {
+      id: '/_authenticated/journal'
+      path: '/journal'
+      fullPath: '/journal'
+      preLoaderRoute: typeof AuthenticatedJournalRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -107,17 +130,8 @@ const rootRouteChildren: RootRouteChildren = {
   AuthRoute: AuthRoute,
   CardsRoute: CardsRoute,
   SpreadsRoute: SpreadsRoute,
+  AuthenticatedJournalRoute: AuthenticatedJournalRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
