@@ -48,5 +48,19 @@ export const DECKS: Deck[] = [
 ];
 
 export function getDeck(id: string): Deck {
+  if (id === BLENDED_DECK.id) return BLENDED_DECK;
   return DECKS.find((deck) => deck.id === id) ?? DECKS[0]!;
 }
+
+/** Pseudo-deck: every card is drawn from all traditions at once. */
+export const BLENDED_DECK: Deck = {
+  id: "blend",
+  name: "The Blended Deck",
+  tradition: "All four traditions shuffled together",
+  description:
+    "Rider–Waite–Smith, Egyptian, Thoth and Isis shuffled into a single pile. Each card arrives in whichever tradition wants to speak, and is read in that voice.",
+  glyph: "✺",
+  suitLabels: { wands: "Wands", cups: "Cups", swords: "Swords", pentacles: "Pentacles" },
+};
+
+export const DECK_OPTIONS: Deck[] = [BLENDED_DECK, ...DECKS];

@@ -1,10 +1,14 @@
 import { ALL_CARDS, type TarotCard } from "./cards";
+import { DECKS } from "./decks";
 
 export interface DrawnCard {
   card: TarotCard;
   reversed: boolean;
   positionLabel: string;
   positionMeaning: string;
+  /** Which tradition this card came up in. */
+  deckId: string;
+  clarifier?: boolean;
 }
 
 /** Fisher–Yates using crypto randomness when available. */
@@ -28,17 +32,31 @@ function randomInt(max: number): number {
 
 export function dealSpread(
   positions: { label: string; meaning: string }[],
-  options: { allowReversals: boolean; majorsOnly?: boolean },
+  options: { allowReversals: boolean; majorsOnly?: boolean; deckId: string; clarifiers?: number },
 ): DrawnCard[] {
   const pool = options.majorsOnly ? ALL_CARDS.filter((c) => c.arcana === "major") : ALL_CARDS;
   const shuffled = shuffle(pool);
-  return positions.map((position, index) => ({
+  const blended = options.deckId === "blend";
+  const clarifierCount = Math.max(0, options.clarifiers ?? 0);
+  const slots = [
+    ...positions.map((position) => ({ ...position, clarifier: false })),
+    ...Array.from({ length: clarifierCount }, (_, index) => ({
+      label: `Clarifier ${ROMAN_CLARIFIER[index] ?? index + 1}`,
+      meaning: "Further light thrown on the spread as a whole.",
+      clarifier: true,
+    })),
+  ];
+  return slots.map((slot, index) => ({
     card: shuffled[index % shuffled.length]!,
     reversed: options.allowReversals ? randomInt(100) < 32 : false,
-    positionLabel: position.label,
-    positionMeaning: position.meaning,
+    positionLabel: slot.label,
+    positionMeaning: slot.meaning,
+    deckId: blended ? DECKS[randomInt(DECKS.length)]!.id : options.deckId,
+    clarifier: slot.clarifier,
   }));
 }
+
+const ROMAN_CLARIFIER = ["I", "II", "III", "IV", "V"];
 
 export function cardMeaning(drawn: DrawnCard): string {
   return drawn.reversed ? drawn.card.reversed : drawn.card.upright;
