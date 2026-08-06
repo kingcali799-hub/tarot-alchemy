@@ -1,6 +1,6 @@
 import { CardFace } from "./CardFace";
 import type { DrawnCard } from "@/lib/tarot/engine";
-import type { Deck } from "@/lib/tarot/decks";
+import { getDeck, type Deck } from "@/lib/tarot/decks";
 import type { SpreadPosition } from "@/lib/tarot/spreads";
 import { cn } from "@/lib/utils";
 
@@ -31,7 +31,7 @@ export function ReadingCloth({ positions, drawn, deck, revealed, activeIndex, on
                 {card ? (
                   <CardFace
                     card={card.card}
-                    deck={deck}
+                    deck={getDeck(card.deckId ?? deck.id)}
                     reversed={card.reversed}
                     faceDown={!isRevealed}
                     selected={activeIndex === index}
