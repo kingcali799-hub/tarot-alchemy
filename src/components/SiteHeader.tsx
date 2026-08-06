@@ -35,6 +35,9 @@ export function SiteHeader() {
           <Link to="/spreads" className={navLinkClass} activeProps={{ className: "text-gold" }}>
             Spreads
           </Link>
+          <Link to="/builder" className={navLinkClass} activeProps={{ className: "text-gold" }}>
+            Builder
+          </Link>
           {user ? (
             <>
               <Link to="/journal" className={navLinkClass} activeProps={{ className: "text-gold" }}>
