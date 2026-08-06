@@ -1,8 +1,9 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { DECKS, getDeck } from "@/lib/tarot/decks";
 import { SPREADS, SPREAD_CATEGORIES, getSpread } from "@/lib/tarot/spreads";
+import { loadCustomSpreads, type CustomSpread } from "@/lib/tarot/customSpreads";
 import { cardKeywords, cardMeaning, dealSpread, type DrawnCard } from "@/lib/tarot/engine";
 import { ReadingCloth } from "@/components/tarot/ReadingCloth";
 import { cardTitle } from "@/components/tarot/CardFace";
@@ -45,9 +46,24 @@ function Index() {
   const [interpretation, setInterpretation] = useState("");
   const [interpreting, setInterpreting] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [customSpreads, setCustomSpreads] = useState<CustomSpread[]>([]);
+
+  useEffect(() => {
+    const sync = () => setCustomSpreads(loadCustomSpreads());
+    sync();
+    window.addEventListener("oracle:custom-spreads", sync);
+    window.addEventListener("focus", sync);
+    return () => {
+      window.removeEventListener("oracle:custom-spreads", sync);
+      window.removeEventListener("focus", sync);
+    };
+  }, []);
 
   const deck = getDeck(deckId);
-  const spread = useMemo(() => getSpread(spreadId) ?? SPREADS[1]!, [spreadId]);
+  const spread = useMemo(
+    () => getSpread(spreadId) ?? customSpreads.find((item) => item.id === spreadId) ?? SPREADS[1]!,
+    [spreadId, customSpreads],
+  );
   const active = activeIndex !== null ? drawn[activeIndex] : undefined;
 
   function deal() {
@@ -199,6 +215,15 @@ function Index() {
                   ))}
                 </optgroup>
               ))}
+              {customSpreads.length ? (
+                <optgroup label="My spreads">
+                  {customSpreads.map((item) => (
+                    <option key={item.id} value={item.id}>
+                      {item.name} · {item.positions.length} cards
+                    </option>
+                  ))}
+                </optgroup>
+              ) : null}
             </select>
             <p className="mt-2 text-xs leading-relaxed text-muted-foreground">{spread.bestFor}</p>
           </div>
@@ -233,6 +258,9 @@ function Index() {
           </button>
           <Link to="/spreads" className="block text-center text-[11px] uppercase tracking-[0.2em] text-muted-foreground hover:text-gold">
             Browse all spreads
+          </Link>
+          <Link to="/builder" className="block text-center text-[11px] uppercase tracking-[0.2em] text-muted-foreground hover:text-gold">
+            Build a custom spread
           </Link>
         </div>
 
