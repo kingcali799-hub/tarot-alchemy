@@ -192,6 +192,7 @@ function Index() {
                   onClick={() => setDeckId(item.id)}
                   className={cn(
                     "rounded-md border px-3 py-2 text-left transition-colors",
+                    item.id === "blend" && "col-span-2",
                     deckId === item.id
                       ? "border-gold/70 bg-secondary text-foreground"
                       : "border-border bg-background/40 text-muted-foreground hover:border-gold/40",
@@ -258,6 +259,37 @@ function Index() {
             </label>
           </div>
 
+          <div className="rounded-md border border-gold/15 bg-background/30 p-3">
+            <label className="flex items-center gap-2 text-xs text-muted-foreground">
+              <input
+                type="checkbox"
+                checked={useClarifiers}
+                onChange={(event) => setUseClarifiers(event.target.checked)}
+                className="accent-[oklch(0.78_0.12_85)]"
+              />
+              Deal clarification cards
+            </label>
+            {useClarifiers ? (
+              <div className="mt-3 flex items-center gap-2">
+                {[1, 2, 3].map((count) => (
+                  <button
+                    key={count}
+                    type="button"
+                    onClick={() => setClarifierCount(count)}
+                    className={cn(
+                      "flex-1 rounded-md border px-2 py-1.5 text-xs transition-colors",
+                      clarifierCount === count
+                        ? "border-gold/70 bg-secondary text-foreground"
+                        : "border-border text-muted-foreground hover:border-gold/40",
+                    )}
+                  >
+                    {count} card{count > 1 ? "s" : ""}
+                  </button>
+                ))}
+              </div>
+            ) : null}
+          </div>
+
           <button
             type="button"
             onClick={deal}
@@ -291,12 +323,38 @@ function Index() {
             <>
               <ReadingCloth
                 positions={spread.positions}
-                drawn={drawn}
+                drawn={spreadCards}
                 deck={deck}
                 revealed={revealed}
                 activeIndex={activeIndex}
                 onSelect={(index) => setActiveIndex(index === activeIndex ? null : index)}
               />
+
+              {clarifierCards.length ? (
+                <div className="rounded-lg border border-gold/15 bg-veil/30 p-4">
+                  <p className="text-[11px] uppercase tracking-[0.3em] text-gold-soft">Clarification</p>
+                  <div className="mt-3 flex flex-wrap gap-4">
+                    {clarifierCards.map((card, offset) => {
+                      const index = spreadCards.length + offset;
+                      return (
+                        <div key={index} className="w-20 sm:w-24">
+                          <CardFace
+                            card={card.card}
+                            deck={getDeck(card.deckId)}
+                            reversed={card.reversed}
+                            faceDown={index >= revealed}
+                            selected={activeIndex === index}
+                            onClick={() => setActiveIndex(index === activeIndex ? null : index)}
+                          />
+                          <p className="mt-1 truncate text-center text-[9px] uppercase tracking-[0.14em] text-muted-foreground">
+                            {card.positionLabel}
+                          </p>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ) : null}
 
               {active ? (
                 <div className="rounded-lg border border-gold/25 bg-card/70 p-5">
@@ -304,9 +362,12 @@ function Index() {
                     {active.positionLabel} — {active.positionMeaning}
                   </p>
                   <h2 className="mt-2 text-2xl text-foreground">
-                    {cardTitle(active.card, deck)}
+                    {cardTitle(active.card, getDeck(active.deckId))}
                     {active.reversed ? <span className="text-base text-ember"> · reversed</span> : null}
                   </h2>
+                  <p className="mt-1 text-[11px] uppercase tracking-[0.2em] text-gold-soft/80">
+                    {getDeck(active.deckId).name}
+                  </p>
                   <p className="mt-1 text-xs uppercase tracking-[0.16em] text-muted-foreground">
                     {cardKeywords(active).join(" · ")}
                   </p>
