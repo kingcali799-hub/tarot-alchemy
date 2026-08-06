@@ -185,7 +185,7 @@ function Index() {
           <div>
             <p className="text-[11px] uppercase tracking-[0.22em] text-gold-soft">Deck</p>
             <div className="mt-2 grid grid-cols-2 gap-2">
-              {DECKS.map((item) => (
+              {DECK_OPTIONS.map((item) => (
                 <button
                   key={item.id}
                   type="button"
