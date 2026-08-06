@@ -2,8 +2,8 @@ import type { Spread, SpreadPosition } from "./spreads";
 
 const STORAGE_KEY = "oracle.customSpreads.v1";
 
-export interface CustomSpread extends Spread {
-  category: "custom" | Spread["category"];
+export interface CustomSpread extends Omit<Spread, "category"> {
+  category: "custom";
   custom: true;
   updatedAt: number;
 }
