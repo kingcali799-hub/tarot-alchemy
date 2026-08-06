@@ -1,12 +1,12 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { DECKS, getDeck } from "@/lib/tarot/decks";
+import { DECK_OPTIONS, getDeck } from "@/lib/tarot/decks";
 import { SPREADS, SPREAD_CATEGORIES, getSpread } from "@/lib/tarot/spreads";
 import { loadCustomSpreads, type CustomSpread } from "@/lib/tarot/customSpreads";
 import { cardKeywords, cardMeaning, dealSpread, type DrawnCard } from "@/lib/tarot/engine";
 import { ReadingCloth } from "@/components/tarot/ReadingCloth";
-import { cardTitle } from "@/components/tarot/CardFace";
+import { CardFace, cardTitle } from "@/components/tarot/CardFace";
 import { interpretReading, saveReading } from "@/lib/reading.functions";
 import { useSession } from "@/hooks/useSession";
 import { cn } from "@/lib/utils";
@@ -35,10 +35,12 @@ type Phase = "intention" | "shuffling" | "reading";
 function Index() {
   const { user } = useSession();
   const [intention, setIntention] = useState("");
-  const [deckId, setDeckId] = useState("rws");
+  const [deckId, setDeckId] = useState("blend");
   const [spreadId, setSpreadId] = useState("three-card");
   const [reversals, setReversals] = useState(true);
   const [majorsOnly, setMajorsOnly] = useState(false);
+  const [useClarifiers, setUseClarifiers] = useState(false);
+  const [clarifierCount, setClarifierCount] = useState(1);
   const [phase, setPhase] = useState<Phase>("intention");
   const [drawn, setDrawn] = useState<DrawnCard[]>([]);
   const [revealed, setRevealed] = useState(0);
@@ -65,9 +67,16 @@ function Index() {
     [spreadId, customSpreads],
   );
   const active = activeIndex !== null ? drawn[activeIndex] : undefined;
+  const spreadCards = drawn.filter((card) => !card.clarifier);
+  const clarifierCards = drawn.filter((card) => card.clarifier);
 
   function deal() {
-    const cards = dealSpread(spread.positions, { allowReversals: reversals, majorsOnly });
+    const cards = dealSpread(spread.positions, {
+      allowReversals: reversals,
+      majorsOnly,
+      deckId,
+      clarifiers: useClarifiers ? clarifierCount : 0,
+    });
     setDrawn(cards);
     setRevealed(0);
     setActiveIndex(null);
@@ -96,7 +105,7 @@ function Index() {
           deckTradition: deck.tradition,
           spreadName: spread.name,
           cards: drawn.map((d) => ({
-            name: cardTitle(d.card, deck),
+            name: `${cardTitle(d.card, getDeck(d.deckId))} (${getDeck(d.deckId).name})`,
             reversed: d.reversed,
             positionLabel: d.positionLabel,
             positionMeaning: d.positionMeaning,
@@ -126,7 +135,7 @@ function Index() {
           spreadId,
           spreadName: spread.name,
           cards: drawn.map((d) => ({
-            name: cardTitle(d.card, deck),
+            name: `${cardTitle(d.card, getDeck(d.deckId))} (${getDeck(d.deckId).name})`,
             reversed: d.reversed,
             positionLabel: d.positionLabel,
             positionMeaning: d.positionMeaning,
