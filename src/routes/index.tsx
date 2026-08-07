@@ -297,10 +297,15 @@ function Index() {
                 onChange={(event) => setUseClarifiers(event.target.checked)}
                 className="accent-[oklch(0.78_0.12_85)]"
               />
-              Deal clarification cards
+              Deal a clarification card for each card
             </label>
             {useClarifiers ? (
-              <div className="mt-3 flex items-center gap-2">
+              <>
+              <p className="mt-2 text-[10px] uppercase tracking-[0.18em] text-muted-foreground/70">
+                {spread.positions.length * clarifierCount} clarifier
+                {spread.positions.length * clarifierCount === 1 ? "" : "s"} total
+              </p>
+              <div className="mt-2 flex items-center gap-2">
                 {[1, 2, 3].map((count) => (
                   <button
                     key={count}
@@ -313,10 +318,11 @@ function Index() {
                         : "border-border text-muted-foreground hover:border-gold/40",
                     )}
                   >
-                    {count} card{count > 1 ? "s" : ""}
+                    {count} per card
                   </button>
                 ))}
               </div>
+              </>
             ) : null}
           </div>
 
