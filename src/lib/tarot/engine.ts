@@ -9,6 +9,8 @@ export interface DrawnCard {
   /** Which tradition this card came up in. */
   deckId: string;
   clarifier?: boolean;
+  /** For clarifiers: the position label this card throws light on. */
+  clarifies?: string;
 }
 
 /** Fisher–Yates using crypto randomness when available. */
@@ -37,15 +39,21 @@ export function dealSpread(
   const pool = options.majorsOnly ? ALL_CARDS.filter((c) => c.arcana === "major") : ALL_CARDS;
   const shuffled = shuffle(pool);
   const blended = options.deckId === "blend";
-  const clarifierCount = Math.max(0, options.clarifiers ?? 0);
-  const slots = [
+  // Clarifiers are dealt per dealt card: each position gets its own clarifier(s).
+  const perCard = Math.max(0, options.clarifiers ?? 0);
+  const slots: { label: string; meaning: string; clarifier: boolean; clarifies?: string }[] = [
     ...positions.map((position) => ({ ...position, clarifier: false })),
-    ...Array.from({ length: clarifierCount }, (_, index) => ({
-      label: `Clarifier ${ROMAN_CLARIFIER[index] ?? index + 1}`,
-      meaning: "Further light thrown on the spread as a whole.",
-      clarifier: true,
-    })),
   ];
+  for (const position of positions) {
+    for (let i = 0; i < perCard; i++) {
+      slots.push({
+        label: perCard > 1 ? `Clarifier ${ROMAN_CLARIFIER[i] ?? i + 1} · ${position.label}` : `Clarifier · ${position.label}`,
+        meaning: `Further light on "${position.label}" — ${position.meaning}`,
+        clarifier: true,
+        clarifies: position.label,
+      });
+    }
+  }
   return slots.map((slot, index) => ({
     card: shuffled[index % shuffled.length]!,
     reversed: options.allowReversals ? randomInt(100) < 32 : false,
@@ -53,6 +61,7 @@ export function dealSpread(
     positionMeaning: slot.meaning,
     deckId: blended ? DECKS[randomInt(DECKS.length)]!.id : options.deckId,
     clarifier: slot.clarifier,
+    ...(slot.clarifies ? { clarifies: slot.clarifies } : {}),
   }));
 }
 
