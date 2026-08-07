@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
-import { deleteReading, listReadings } from "@/lib/reading.functions";
+import { deleteReading, forgetOracleMemory, getOracleContext, listReadings } from "@/lib/reading.functions";
 import { getDeck } from "@/lib/tarot/decks";
 
 export const Route = createFileRoute("/_authenticated/journal")({
@@ -27,12 +27,29 @@ interface StoredCard {
 function JournalPage() {
   const fetchReadings = useServerFn(listReadings);
   const removeReading = useServerFn(deleteReading);
+  const fetchContext = useServerFn(getOracleContext);
+  const forgetMemory = useServerFn(forgetOracleMemory);
   const queryClient = useQueryClient();
 
   const { data, isLoading } = useQuery({
     queryKey: ["readings"],
     queryFn: () => fetchReadings(),
   });
+
+  const { data: memory } = useQuery({
+    queryKey: ["oracle-memory"],
+    queryFn: () => fetchContext(),
+  });
+
+  async function forget() {
+    try {
+      await forgetMemory({});
+      await queryClient.invalidateQueries({ queryKey: ["oracle-memory"] });
+      toast.success("The Oracle has forgotten what she knew of you.");
+    } catch {
+      toast.error("Could not clear her memory.");
+    }
+  }
 
   async function remove(id: string) {
     try {
@@ -47,6 +64,29 @@ function JournalPage() {
     <div className="mx-auto max-w-4xl px-4 py-10">
       <h1 className="text-4xl text-foreground">Your journal</h1>
       <p className="mt-2 text-sm text-muted-foreground">Readings you have kept, newest first.</p>
+
+      {memory?.notes ? (
+        <section className="mt-6 rounded-lg border border-gold/20 bg-veil/40 p-5">
+          <div className="flex items-start justify-between gap-4">
+            <p className="text-[11px] uppercase tracking-[0.3em] text-gold-soft">What the Oracle remembers</p>
+            <button
+              type="button"
+              onClick={forget}
+              className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground transition-colors hover:text-ember"
+            >
+              Make her forget
+            </button>
+          </div>
+          <div className="mt-3 space-y-1 text-sm leading-relaxed text-foreground/90">
+            {memory.notes
+              .split("\n")
+              .filter(Boolean)
+              .map((line, index) => (
+                <p key={index}>{line.replace(/^[-•]\s*/, "— ")}</p>
+              ))}
+          </div>
+        </section>
+      ) : null}
 
       {isLoading ? (
         <p className="mt-10 text-xs uppercase tracking-[0.3em] text-muted-foreground">Opening the journal…</p>
