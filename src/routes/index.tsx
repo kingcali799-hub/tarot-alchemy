@@ -7,7 +7,7 @@ import { loadCustomSpreads, type CustomSpread } from "@/lib/tarot/customSpreads"
 import { cardKeywords, cardMeaning, dealSpread, type DrawnCard } from "@/lib/tarot/engine";
 import { ReadingCloth } from "@/components/tarot/ReadingCloth";
 import { CardFace, cardTitle } from "@/components/tarot/CardFace";
-import { interpretReading, saveReading } from "@/lib/reading.functions";
+import { getOracleContext, interpretReading, rememberReading, saveReading } from "@/lib/reading.functions";
 import { useSession } from "@/hooks/useSession";
 import { cn } from "@/lib/utils";
 
@@ -98,23 +98,53 @@ function Index() {
     if (!drawn.length) return;
     setInterpreting(true);
     try {
+      const cards = drawn.map((d) => ({
+        name: `${cardTitle(d.card, getDeck(d.deckId))} (${getDeck(d.deckId).name})`,
+        reversed: d.reversed,
+        positionLabel: d.positionLabel,
+        positionMeaning: d.positionMeaning,
+        keywords: cardKeywords(d),
+        meaning: cardMeaning(d),
+      }));
+
+      let memory = "";
+      let history = "";
+      if (user) {
+        try {
+          const ctx = await getOracleContext();
+          memory = ctx.notes;
+          history = ctx.history;
+        } catch {
+          // memory is optional
+        }
+      }
+      const querentName =
+        (user?.user_metadata?.["display_name"] as string | undefined) ??
+        user?.email?.split("@")[0] ??
+        undefined;
+
       const result = await interpretReading({
         data: {
           intention,
           deckName: deck.name,
           deckTradition: deck.tradition,
           spreadName: spread.name,
-          cards: drawn.map((d) => ({
-            name: `${cardTitle(d.card, getDeck(d.deckId))} (${getDeck(d.deckId).name})`,
-            reversed: d.reversed,
-            positionLabel: d.positionLabel,
-            positionMeaning: d.positionMeaning,
-            keywords: cardKeywords(d),
-            meaning: cardMeaning(d),
-          })),
+          cards,
+          ...(querentName ? { querentName } : {}),
+          ...(memory ? { memory } : {}),
+          ...(history ? { history } : {}),
         },
       });
       setInterpretation(result.interpretation);
+      if (user) {
+        rememberReading({
+          data: {
+            intention,
+            cardNames: cards.map((c) => `${c.name}${c.reversed ? " (reversed)" : ""}`),
+            interpretation: result.interpretation,
+          },
+        }).catch(() => undefined);
+      }
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "The oracle could not speak.");
     } finally {
