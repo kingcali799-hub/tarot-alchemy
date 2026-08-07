@@ -14,6 +14,24 @@ export type Database = {
   }
   public: {
     Tables: {
+      oracle_memory: {
+        Row: {
+          notes: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          notes?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          notes?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           bio: string | null
