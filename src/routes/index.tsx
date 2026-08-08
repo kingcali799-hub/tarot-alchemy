@@ -407,7 +407,7 @@ function Index() {
         <div className="space-y-5">
           {phase === "intention" ? (
             <div className="flex h-full min-h-72 flex-col items-center justify-center rounded-lg border border-dashed border-gold/20 p-10 text-center">
-              <span className="text-gradient-gold animate-float text-5xl">{deck.glyph}</span>
+              <OracleOrb glyph={deck.glyph} />
               <p className="mt-4 max-w-sm text-sm text-muted-foreground">
                 The {spread.name} spread lays {spread.positions.length}{" "}
                 {spread.positions.length === 1 ? "card" : "cards"}. When you are ready, shuffle.
@@ -415,7 +415,7 @@ function Index() {
             </div>
           ) : phase === "shuffling" ? (
             <div className="flex h-full min-h-72 flex-col items-center justify-center rounded-lg border border-gold/20 p-10 text-center">
-              <span className="text-gradient-gold animate-float text-5xl">{deck.glyph}</span>
+              <OracleOrb state="thinking" glyph={deck.glyph} />
               <p className="mt-4 text-xs uppercase tracking-[0.3em] text-muted-foreground">Shuffling…</p>
             </div>
           ) : (
