@@ -69,6 +69,20 @@ function Index() {
   const active = activeIndex !== null ? drawn[activeIndex] : undefined;
   const spreadCards = drawn.filter((card) => !card.clarifier);
   const clarifierCards = drawn.filter((card) => card.clarifier);
+  const clarifierGroups = useMemo(
+    () =>
+      spreadCards
+        .map((parent, parentIndex) => ({
+          parent,
+          parentIndex,
+          clarifiers: clarifierCards
+            .map((card, offset) => ({ card, index: spreadCards.length + offset }))
+            .filter((entry) => entry.card.clarifies === parent.positionLabel),
+        }))
+        .filter((group) => group.clarifiers.length > 0),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [drawn],
+  );
 
   function deal() {
     const cards = dealSpread(spread.positions, {
@@ -366,29 +380,93 @@ function Index() {
                 onSelect={(index) => setActiveIndex(index === activeIndex ? null : index)}
               />
 
-              {clarifierCards.length ? (
-                <div className="rounded-lg border border-gold/15 bg-veil/30 p-4">
+              {clarifierGroups.length ? (
+                <div className="space-y-4 rounded-lg border border-gold/15 bg-veil/30 p-4">
                   <p className="text-[11px] uppercase tracking-[0.3em] text-gold-soft">Clarification</p>
-                  <div className="mt-3 flex flex-wrap gap-4">
-                    {clarifierCards.map((card, offset) => {
-                      const index = spreadCards.length + offset;
-                      return (
-                        <div key={index} className="w-20 sm:w-24">
+                  {clarifierGroups.map((group) => (
+                    <div
+                      key={group.parentIndex}
+                      className="rounded-md border border-gold/15 bg-background/30 p-3"
+                    >
+                      <div className="flex items-start gap-3">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setActiveIndex(group.parentIndex === activeIndex ? null : group.parentIndex)
+                          }
+                          className="w-14 shrink-0 sm:w-16"
+                        >
                           <CardFace
-                            card={card.card}
-                            deck={getDeck(card.deckId)}
-                            reversed={card.reversed}
-                            faceDown={index >= revealed}
-                            selected={activeIndex === index}
-                            onClick={() => setActiveIndex(index === activeIndex ? null : index)}
+                            card={group.parent.card}
+                            deck={getDeck(group.parent.deckId)}
+                            reversed={group.parent.reversed}
+                            faceDown={group.parentIndex >= revealed}
+                            selected={activeIndex === group.parentIndex}
                           />
-                          <p className="mt-1 truncate text-center text-[9px] uppercase tracking-[0.14em] text-muted-foreground">
-                            {card.positionLabel}
+                        </button>
+                        <div className="min-w-0">
+                          <p className="text-[10px] uppercase tracking-[0.22em] text-gold-soft">
+                            {group.parent.positionLabel}
+                          </p>
+                          <p className="text-sm text-foreground">
+                            {group.parentIndex < revealed
+                              ? cardTitle(group.parent.card, getDeck(group.parent.deckId))
+                              : "—"}
+                            {group.parentIndex < revealed && group.parent.reversed ? (
+                              <span className="text-xs text-ember"> · reversed</span>
+                            ) : null}
+                          </p>
+                          <p className="mt-0.5 text-[10px] uppercase tracking-[0.16em] text-muted-foreground">
+                            Clarified by {group.clarifiers.length} card
+                            {group.clarifiers.length === 1 ? "" : "s"}
                           </p>
                         </div>
-                      );
-                    })}
-                  </div>
+                      </div>
+
+                      <div className="mt-3 space-y-3 border-l border-dashed border-gold/30 pl-4">
+                        {group.clarifiers.map(({ card, index }) => (
+                          <div key={index} className="flex items-start gap-3">
+                            <button
+                              type="button"
+                              onClick={() => setActiveIndex(index === activeIndex ? null : index)}
+                              className="w-12 shrink-0 sm:w-14"
+                            >
+                              <CardFace
+                                card={card.card}
+                                deck={getDeck(card.deckId)}
+                                reversed={card.reversed}
+                                faceDown={index >= revealed}
+                                selected={activeIndex === index}
+                              />
+                            </button>
+                            <div className="min-w-0">
+                              <p className="text-[9px] uppercase tracking-[0.2em] text-gold-soft/80">
+                                ↳ Clarifies {card.clarifies}
+                              </p>
+                              {index < revealed ? (
+                                <>
+                                  <p className="text-sm text-foreground">
+                                    {cardTitle(card.card, getDeck(card.deckId))}
+                                    {card.reversed ? (
+                                      <span className="text-xs text-ember"> · reversed</span>
+                                    ) : null}
+                                  </p>
+                                  <p className="mt-0.5 text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
+                                    {cardKeywords(card).join(" · ")}
+                                  </p>
+                                  <p className="mt-1 text-xs leading-relaxed text-foreground/85">
+                                    {cardMeaning(card)}
+                                  </p>
+                                </>
+                              ) : (
+                                <p className="text-xs text-muted-foreground">Still face down…</p>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
                 </div>
               ) : null}
 
