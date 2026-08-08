@@ -562,8 +562,25 @@ function Index() {
               </div>
 
               {interpretation ? (
-                <article className="rounded-lg border border-gold/25 bg-veil/50 p-6">
-                  <p className="text-[11px] uppercase tracking-[0.3em] text-gold-soft">The reading</p>
+                <article className="animate-fade-in rounded-lg border border-gold/25 bg-veil/50 p-6">
+                  <div className="flex flex-wrap items-center justify-between gap-4">
+                    <div className="flex items-center gap-3">
+                      <OracleOrb
+                        state={speaking ? "speaking" : loadingVoice ? "thinking" : "idle"}
+                        glyph={deck.glyph}
+                        className="w-16"
+                      />
+                      <p className="text-[11px] uppercase tracking-[0.3em] text-gold-soft">The reading</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => void speakAloud()}
+                      disabled={loadingVoice}
+                      className="rounded-md border border-gold/50 px-4 py-2 text-[11px] uppercase tracking-[0.2em] text-gold transition-colors hover:bg-secondary disabled:opacity-40"
+                    >
+                      {loadingVoice ? "Finding her voice…" : speaking ? "Silence her" : "Hear her speak"}
+                    </button>
+                  </div>
                   <div className="mt-3 space-y-4 font-display text-[17px] leading-relaxed text-foreground/95">
                     {interpretation.split(/\n{1,}/).filter(Boolean).map((paragraph, index) => (
                       <p key={index}>{paragraph}</p>
