@@ -112,6 +112,7 @@ function Index() {
     setRevealed(0);
     setActiveIndex(null);
     setInterpretation("");
+    stopVoice();
     setSaved(false);
     setPhase("shuffling");
     window.setTimeout(() => {
@@ -167,6 +168,7 @@ function Index() {
         },
       });
       setInterpretation(result.interpretation);
+      void speakAloud(result.interpretation);
       if (user) {
         rememberReading({
           data: {
@@ -189,15 +191,17 @@ function Index() {
     setSpeaking(false);
   }
 
-  async function speakAloud() {
-    if (speaking) {
+  async function speakAloud(text?: string) {
+    const spoken = text ?? interpretation;
+    if (!text && speaking) {
       stopVoice();
       return;
     }
-    if (!interpretation) return;
+    if (!spoken) return;
+    stopVoice();
     setLoadingVoice(true);
     try {
-      const { audio, mimeType } = await speakReading({ data: { text: interpretation } });
+      const { audio, mimeType } = await speakReading({ data: { text: spoken } });
       const element = new Audio(`data:${mimeType};base64,${audio}`);
       audioRef.current = element;
       element.onended = () => setSpeaking(false);
