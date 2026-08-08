@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { DECK_OPTIONS, getDeck } from "@/lib/tarot/decks";
 import { SPREADS, SPREAD_CATEGORIES, getSpread } from "@/lib/tarot/spreads";
@@ -7,7 +7,14 @@ import { loadCustomSpreads, type CustomSpread } from "@/lib/tarot/customSpreads"
 import { cardKeywords, cardMeaning, dealSpread, type DrawnCard } from "@/lib/tarot/engine";
 import { ReadingCloth } from "@/components/tarot/ReadingCloth";
 import { CardFace, cardTitle } from "@/components/tarot/CardFace";
-import { getOracleContext, interpretReading, rememberReading, saveReading } from "@/lib/reading.functions";
+import { OracleOrb } from "@/components/tarot/OracleOrb";
+import {
+  getOracleContext,
+  interpretReading,
+  rememberReading,
+  saveReading,
+  speakReading,
+} from "@/lib/reading.functions";
 import { useSession } from "@/hooks/useSession";
 import { cn } from "@/lib/utils";
 
@@ -49,6 +56,16 @@ function Index() {
   const [interpreting, setInterpreting] = useState(false);
   const [saved, setSaved] = useState(false);
   const [customSpreads, setCustomSpreads] = useState<CustomSpread[]>([]);
+  const [speaking, setSpeaking] = useState(false);
+  const [loadingVoice, setLoadingVoice] = useState(false);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  useEffect(() => {
+    return () => {
+      audioRef.current?.pause();
+      audioRef.current = null;
+    };
+  }, []);
 
   useEffect(() => {
     const sync = () => setCustomSpreads(loadCustomSpreads());
