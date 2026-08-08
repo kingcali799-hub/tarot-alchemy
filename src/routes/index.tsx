@@ -184,6 +184,8 @@ function Index() {
   }
 
   async function keepReading() {
+    stopVoice();
+    void 0;
     if (!user) {
       toast.error("Sign in to keep readings in your journal.");
       return;
