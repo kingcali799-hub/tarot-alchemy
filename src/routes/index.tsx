@@ -183,9 +183,35 @@ function Index() {
     }
   }
 
+  function stopVoice() {
+    audioRef.current?.pause();
+    audioRef.current = null;
+    setSpeaking(false);
+  }
+
+  async function speakAloud() {
+    if (speaking) {
+      stopVoice();
+      return;
+    }
+    if (!interpretation) return;
+    setLoadingVoice(true);
+    try {
+      const { audio, mimeType } = await speakReading({ data: { text: interpretation } });
+      const element = new Audio(`data:${mimeType};base64,${audio}`);
+      audioRef.current = element;
+      element.onended = () => setSpeaking(false);
+      element.onerror = () => setSpeaking(false);
+      await element.play();
+      setSpeaking(true);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "The oracle could not find her voice.");
+    } finally {
+      setLoadingVoice(false);
+    }
+  }
+
   async function keepReading() {
-    stopVoice();
-    void 0;
     if (!user) {
       toast.error("Sign in to keep readings in your journal.");
       return;
