@@ -211,3 +211,33 @@ export const forgetOracleMemory = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
     return { ok: true };
   });
+const SpeakSchema = z.object({ text: z.string().trim().min(1).max(4000) });
+
+/** Give the Oracle a voice: returns base64 mp3 audio of her reading. */
+export const speakReading = createServerFn({ method: "POST" })
+  .inputValidator((input: unknown) => SpeakSchema.parse(input))
+  .handler(async ({ data }) => {
+    const apiKey = process.env["LOVABLE_API_KEY"];
+    if (!apiKey) throw new Error("The oracle has no voice configured.");
+
+    const response = await fetch("https://ai.gateway.lovable.dev/v1/audio/speech", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Lovable-API-Key": apiKey },
+      body: JSON.stringify({
+        model: "openai/gpt-4o-mini-tts",
+        voice: "sage",
+        input: data.text.slice(0, 4000),
+        instructions:
+          "Speak as a warm, knowing tarot reader: unhurried, low and intimate, a little wry. Let pauses land between thoughts.",
+      }),
+    });
+
+    if (response.status === 429) throw new Error("The oracle needs a moment — too many voices at once.");
+    if (response.status === 402) throw new Error("The oracle's voice needs more credits.");
+    if (!response.ok) throw new Error("The oracle could not find her voice.");
+
+    const buffer = new Uint8Array(await response.arrayBuffer());
+    let binary = "";
+    for (const byte of buffer) binary += String.fromCharCode(byte);
+    return { audio: btoa(binary), mimeType: "audio/mpeg" };
+  });

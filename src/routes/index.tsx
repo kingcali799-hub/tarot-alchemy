@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { DECK_OPTIONS, getDeck } from "@/lib/tarot/decks";
 import { SPREADS, SPREAD_CATEGORIES, getSpread } from "@/lib/tarot/spreads";
@@ -7,7 +7,14 @@ import { loadCustomSpreads, type CustomSpread } from "@/lib/tarot/customSpreads"
 import { cardKeywords, cardMeaning, dealSpread, type DrawnCard } from "@/lib/tarot/engine";
 import { ReadingCloth } from "@/components/tarot/ReadingCloth";
 import { CardFace, cardTitle } from "@/components/tarot/CardFace";
-import { getOracleContext, interpretReading, rememberReading, saveReading } from "@/lib/reading.functions";
+import { OracleOrb } from "@/components/tarot/OracleOrb";
+import {
+  getOracleContext,
+  interpretReading,
+  rememberReading,
+  saveReading,
+  speakReading,
+} from "@/lib/reading.functions";
 import { useSession } from "@/hooks/useSession";
 import { cn } from "@/lib/utils";
 
@@ -49,6 +56,16 @@ function Index() {
   const [interpreting, setInterpreting] = useState(false);
   const [saved, setSaved] = useState(false);
   const [customSpreads, setCustomSpreads] = useState<CustomSpread[]>([]);
+  const [speaking, setSpeaking] = useState(false);
+  const [loadingVoice, setLoadingVoice] = useState(false);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  useEffect(() => {
+    return () => {
+      audioRef.current?.pause();
+      audioRef.current = null;
+    };
+  }, []);
 
   useEffect(() => {
     const sync = () => setCustomSpreads(loadCustomSpreads());
@@ -95,6 +112,7 @@ function Index() {
     setRevealed(0);
     setActiveIndex(null);
     setInterpretation("");
+    stopVoice();
     setSaved(false);
     setPhase("shuffling");
     window.setTimeout(() => {
@@ -150,6 +168,7 @@ function Index() {
         },
       });
       setInterpretation(result.interpretation);
+      void speakAloud(result.interpretation);
       if (user) {
         rememberReading({
           data: {
@@ -163,6 +182,36 @@ function Index() {
       toast.error(error instanceof Error ? error.message : "The oracle could not speak.");
     } finally {
       setInterpreting(false);
+    }
+  }
+
+  function stopVoice() {
+    audioRef.current?.pause();
+    audioRef.current = null;
+    setSpeaking(false);
+  }
+
+  async function speakAloud(text?: string) {
+    const spoken = text ?? interpretation;
+    if (!text && speaking) {
+      stopVoice();
+      return;
+    }
+    if (!spoken) return;
+    stopVoice();
+    setLoadingVoice(true);
+    try {
+      const { audio, mimeType } = await speakReading({ data: { text: spoken } });
+      const element = new Audio(`data:${mimeType};base64,${audio}`);
+      audioRef.current = element;
+      element.onended = () => setSpeaking(false);
+      element.onerror = () => setSpeaking(false);
+      await element.play();
+      setSpeaking(true);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "The oracle could not find her voice.");
+    } finally {
+      setLoadingVoice(false);
     }
   }
 
@@ -358,7 +407,7 @@ function Index() {
         <div className="space-y-5">
           {phase === "intention" ? (
             <div className="flex h-full min-h-72 flex-col items-center justify-center rounded-lg border border-dashed border-gold/20 p-10 text-center">
-              <span className="text-gradient-gold animate-float text-5xl">{deck.glyph}</span>
+              <OracleOrb glyph={deck.glyph} />
               <p className="mt-4 max-w-sm text-sm text-muted-foreground">
                 The {spread.name} spread lays {spread.positions.length}{" "}
                 {spread.positions.length === 1 ? "card" : "cards"}. When you are ready, shuffle.
@@ -366,7 +415,7 @@ function Index() {
             </div>
           ) : phase === "shuffling" ? (
             <div className="flex h-full min-h-72 flex-col items-center justify-center rounded-lg border border-gold/20 p-10 text-center">
-              <span className="text-gradient-gold animate-float text-5xl">{deck.glyph}</span>
+              <OracleOrb state="thinking" glyph={deck.glyph} />
               <p className="mt-4 text-xs uppercase tracking-[0.3em] text-muted-foreground">Shuffling…</p>
             </div>
           ) : (
@@ -513,8 +562,25 @@ function Index() {
               </div>
 
               {interpretation ? (
-                <article className="rounded-lg border border-gold/25 bg-veil/50 p-6">
-                  <p className="text-[11px] uppercase tracking-[0.3em] text-gold-soft">The reading</p>
+                <article className="animate-fade-in rounded-lg border border-gold/25 bg-veil/50 p-6">
+                  <div className="flex flex-wrap items-center justify-between gap-4">
+                    <div className="flex items-center gap-3">
+                      <OracleOrb
+                        state={speaking ? "speaking" : loadingVoice ? "thinking" : "idle"}
+                        glyph={deck.glyph}
+                        className="w-16"
+                      />
+                      <p className="text-[11px] uppercase tracking-[0.3em] text-gold-soft">The reading</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => void speakAloud()}
+                      disabled={loadingVoice}
+                      className="rounded-md border border-gold/50 px-4 py-2 text-[11px] uppercase tracking-[0.2em] text-gold transition-colors hover:bg-secondary disabled:opacity-40"
+                    >
+                      {loadingVoice ? "Finding her voice…" : speaking ? "Silence her" : "Hear her speak"}
+                    </button>
+                  </div>
                   <div className="mt-3 space-y-4 font-display text-[17px] leading-relaxed text-foreground/95">
                     {interpretation.split(/\n{1,}/).filter(Boolean).map((paragraph, index) => (
                       <p key={index}>{paragraph}</p>
