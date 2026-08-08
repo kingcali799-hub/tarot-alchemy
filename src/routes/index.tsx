@@ -69,6 +69,20 @@ function Index() {
   const active = activeIndex !== null ? drawn[activeIndex] : undefined;
   const spreadCards = drawn.filter((card) => !card.clarifier);
   const clarifierCards = drawn.filter((card) => card.clarifier);
+  const clarifierGroups = useMemo(
+    () =>
+      spreadCards
+        .map((parent, parentIndex) => ({
+          parent,
+          parentIndex,
+          clarifiers: clarifierCards
+            .map((card, offset) => ({ card, index: spreadCards.length + offset }))
+            .filter((entry) => entry.card.clarifies === parent.positionLabel),
+        }))
+        .filter((group) => group.clarifiers.length > 0),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [drawn],
+  );
 
   function deal() {
     const cards = dealSpread(spread.positions, {
