@@ -15,6 +15,7 @@ import {
   saveReading,
   speakReading,
 } from "@/lib/reading.functions";
+import { chunkNarration } from "@/lib/tarot/speech";
 import { useSession } from "@/hooks/useSession";
 import { cn } from "@/lib/utils";
 
