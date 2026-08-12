@@ -15,6 +15,7 @@ import {
   saveReading,
   speakReading,
 } from "@/lib/reading.functions";
+import { chunkNarration } from "@/lib/tarot/speech";
 import { useSession } from "@/hooks/useSession";
 import { cn } from "@/lib/utils";
 
@@ -59,6 +60,7 @@ function Index() {
   const [speaking, setSpeaking] = useState(false);
   const [loadingVoice, setLoadingVoice] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const voiceRunRef = useRef(0);
 
   useEffect(() => {
     return () => {
@@ -186,9 +188,11 @@ function Index() {
   }
 
   function stopVoice() {
+    voiceRunRef.current += 1;
     audioRef.current?.pause();
     audioRef.current = null;
     setSpeaking(false);
+    setLoadingVoice(false);
   }
 
   async function speakAloud(text?: string) {
@@ -199,19 +203,43 @@ function Index() {
     }
     if (!spoken) return;
     stopVoice();
+    const run = voiceRunRef.current;
+    const chunks = chunkNarration(spoken);
+    if (!chunks.length) return;
     setLoadingVoice(true);
     try {
-      const { audio, mimeType } = await speakReading({ data: { text: spoken } });
-      const element = new Audio(`data:${mimeType};base64,${audio}`);
-      audioRef.current = element;
-      element.onended = () => setSpeaking(false);
-      element.onerror = () => setSpeaking(false);
-      await element.play();
-      setSpeaking(true);
+      const fetchChunk = (index: number) =>
+        speakReading({ data: { text: chunks[index]! } }).then(
+          ({ audio, mimeType }) => `data:${mimeType};base64,${audio}`,
+        );
+
+      let pending: Promise<string> | null = fetchChunk(0);
+      for (let index = 0; index < chunks.length; index++) {
+        const src = await pending;
+        if (voiceRunRef.current !== run) return;
+        // Prefetch the next chunk while this one plays so there is no gap.
+        pending = index + 1 < chunks.length ? fetchChunk(index + 1) : null;
+        pending?.catch(() => undefined);
+
+        const element = new Audio(src ?? undefined);
+        element.preload = "auto";
+        audioRef.current = element;
+        setLoadingVoice(false);
+        setSpeaking(true);
+        await new Promise<void>((resolve, reject) => {
+          element.onended = () => resolve();
+          element.onerror = () => reject(new Error("The oracle's voice broke up."));
+          element.play().catch(reject);
+        });
+        if (voiceRunRef.current !== run) return;
+      }
+      setSpeaking(false);
     } catch (error) {
+      if (voiceRunRef.current !== run) return;
+      setSpeaking(false);
       toast.error(error instanceof Error ? error.message : "The oracle could not find her voice.");
     } finally {
-      setLoadingVoice(false);
+      if (voiceRunRef.current === run) setLoadingVoice(false);
     }
   }
 
