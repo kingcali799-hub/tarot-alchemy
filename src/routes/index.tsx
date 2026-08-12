@@ -220,7 +220,7 @@ function Index() {
         pending = index + 1 < chunks.length ? fetchChunk(index + 1) : null;
         pending?.catch(() => undefined);
 
-        const element = new Audio(src);
+        const element = new Audio(src ?? undefined);
         element.preload = "auto";
         audioRef.current = element;
         setLoadingVoice(false);
