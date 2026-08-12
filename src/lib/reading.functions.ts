@@ -16,7 +16,7 @@ const InterpretSchema = z.object({
   deckName: z.string().max(80),
   deckTradition: z.string().max(120),
   spreadName: z.string().max(80),
-  cards: z.array(DrawnCardSchema).min(1).max(12),
+  cards: z.array(DrawnCardSchema).min(1).max(50),
   querentName: z.string().max(60).optional(),
   memory: z.string().max(4000).optional(),
   history: z.string().max(4000).optional(),
@@ -85,8 +85,8 @@ const SaveSchema = z.object({
   deckId: z.string().max(40),
   spreadId: z.string().max(60),
   spreadName: z.string().max(80),
-  cards: z.array(DrawnCardSchema).min(1).max(12),
-  interpretation: z.string().max(8000).nullable(),
+  cards: z.array(DrawnCardSchema).min(1).max(50),
+  interpretation: z.string().max(20000).nullable(),
 });
 
 export const saveReading = createServerFn({ method: "POST" })
@@ -162,8 +162,8 @@ export const getOracleContext = createServerFn({ method: "GET" })
 
 const RememberSchema = z.object({
   intention: z.string().max(600),
-  cardNames: z.array(z.string().max(120)).max(16),
-  interpretation: z.string().max(8000),
+  cardNames: z.array(z.string().max(120)).max(60),
+  interpretation: z.string().max(20000),
 });
 
 export const rememberReading = createServerFn({ method: "POST" })
