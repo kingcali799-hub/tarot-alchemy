@@ -61,6 +61,7 @@ function Index() {
   const [loadingVoice, setLoadingVoice] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const voiceRunRef = useRef(0);
+  const sessionRef = useRef<{ cancelled: boolean } | null>(null);
 
   useEffect(() => {
     return () => {
@@ -129,7 +130,7 @@ function Index() {
   }
 
   async function askOracle() {
-    if (!drawn.length) return;
+    if (!drawn.length || interpreting) return;
     setInterpreting(true);
     try {
       const cards = drawn.map((d) => ({
@@ -189,7 +190,15 @@ function Index() {
 
   function stopVoice() {
     voiceRunRef.current += 1;
-    audioRef.current?.pause();
+    if (sessionRef.current) sessionRef.current.cancelled = true;
+    sessionRef.current = null;
+    const element = audioRef.current;
+    if (element) {
+      element.onended = null;
+      element.onerror = null;
+      element.pause();
+      element.src = "";
+    }
     audioRef.current = null;
     setSpeaking(false);
     setLoadingVoice(false);
@@ -204,36 +213,38 @@ function Index() {
     if (!spoken) return;
     stopVoice();
     const run = voiceRunRef.current;
+    const session = { cancelled: false };
+    sessionRef.current = session;
     const chunks = chunkNarration(spoken);
     if (!chunks.length) return;
     setLoadingVoice(true);
     try {
       // A single chunk failing must never end the reading — retry, then skip.
       const fetchChunk = async (index: number): Promise<string | null> => {
-        for (let attempt = 0; attempt < 3; attempt++) {
+        for (let attempt = 0; attempt < 4; attempt++) {
+          if (session.cancelled) return null;
           try {
             const { audio, mimeType } = await speakReading({ data: { text: chunks[index]! } });
             return `data:${mimeType};base64,${audio}`;
           } catch {
-            await new Promise((resolve) => window.setTimeout(resolve, 700 * (attempt + 1)));
+            await new Promise((resolve) => window.setTimeout(resolve, 1200 * (attempt + 1)));
           }
         }
         return null;
       };
 
-      // Keep two chunks in flight so playback never waits on the network.
+      // Keep one chunk prefetching ahead — more in flight trips the voice rate limit.
       const queue: Array<Promise<string | null>> = [];
       const enqueue = (index: number) => {
         if (index < chunks.length) queue[index] = fetchChunk(index);
       };
       enqueue(0);
-      enqueue(1);
 
       let spokeSomething = false;
       for (let index = 0; index < chunks.length; index++) {
+        enqueue(index + 1);
         const src = await queue[index];
-        if (voiceRunRef.current !== run) return;
-        enqueue(index + 2);
+        if (session.cancelled || sessionRef.current !== session) return;
         if (!src) continue;
 
         const element = new Audio(src);
@@ -243,20 +254,39 @@ function Index() {
         setSpeaking(true);
         spokeSomething = true;
         await new Promise<void>((resolve) => {
-          element.onended = () => resolve();
-          element.onerror = () => resolve();
-          element.play().catch(() => resolve());
+          let settled = false;
+          const finish = () => {
+            if (settled) return;
+            settled = true;
+            element.onended = null;
+            element.onerror = null;
+            resolve();
+          };
+          element.onended = finish;
+          element.onerror = finish;
+          element.play().then(
+            () => {
+              // A cancel that landed while play() was pending must not leak audio.
+              if (session.cancelled) {
+                element.pause();
+                finish();
+              }
+            },
+            () => finish(),
+          );
         });
-        if (voiceRunRef.current !== run) return;
+        if (session.cancelled || sessionRef.current !== session) return;
       }
+      sessionRef.current = null;
+      audioRef.current = null;
       setSpeaking(false);
       if (!spokeSomething) toast.error("The oracle could not find her voice.");
     } catch (error) {
-      if (voiceRunRef.current !== run) return;
+      if (session.cancelled || sessionRef.current !== session) return;
       setSpeaking(false);
       toast.error(error instanceof Error ? error.message : "The oracle could not find her voice.");
     } finally {
-      if (voiceRunRef.current === run) setLoadingVoice(false);
+      if (!session.cancelled && voiceRunRef.current === run) setLoadingVoice(false);
     }
   }
 

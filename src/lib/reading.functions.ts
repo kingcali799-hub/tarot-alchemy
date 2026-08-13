@@ -234,7 +234,7 @@ export const speakReading = createServerFn({ method: "POST" })
     });
 
     let response: Response | null = null;
-    for (let attempt = 0; attempt < 3; attempt++) {
+    for (let attempt = 0; attempt < 5; attempt++) {
       response = await fetch("https://ai.gateway.lovable.dev/v1/audio/speech", {
         method: "POST",
         headers: { "Content-Type": "application/json", "Lovable-API-Key": apiKey },
@@ -243,7 +243,7 @@ export const speakReading = createServerFn({ method: "POST" })
       if (response.ok) break;
       if (response.status === 402) throw new Error("The oracle's voice needs more credits.");
       if (response.status !== 429 && response.status < 500) break;
-      await new Promise((resolve) => setTimeout(resolve, 800 * (attempt + 1)));
+      await new Promise((resolve) => setTimeout(resolve, 1500 * (attempt + 1)));
     }
 
     if (!response || !response.ok) {
