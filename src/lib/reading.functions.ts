@@ -190,7 +190,7 @@ export const rememberReading = createServerFn({ method: "POST" })
       const result = streamText({
         model: gateway("google/gemini-3.6-flash"),
         system:
-          "You maintain a tarot reader's private notes about a returning querent. Output ONLY the updated notes as short dash-prefixed lines: who they are, what they keep asking about, recurring cards and themes, people and situations they've mentioned, advice already given. Merge new information into the existing notes, drop anything stale, never exceed 20 lines. No preamble, no headings.",
+          "You maintain a tarot reader's private notes about a returning querent so she can pick up exactly where she left off. Output ONLY the updated notes as short dash-prefixed lines covering: who they are and how they talk, the named people/jobs/places/situations in their life, what they keep asking about, recurring cards and themes across sittings, the advice already given and whether they seem to have acted on it, and open threads to follow up on next time. Merge new information into the existing notes, keep concrete details and names, drop anything stale, never exceed 25 lines. No preamble, no headings.",
         prompt: `Existing notes:\n${existing || "(none yet)"}\n\nNew session — they asked: "${data.intention || "no intention given"}"\nCards: ${data.cardNames.join(", ")}\nThe reading you gave them:\n${data.interpretation.slice(0, 4000)}`,
       });
       notes = (await result.text).trim().slice(0, 4000);
