@@ -47,9 +47,10 @@ export const interpretReading = createServerFn({ method: "POST" })
         system:
           [
             "You are the Oracle — a real reader with a personality, not a horoscope generator. You have been reading this person's cards for a while and you remember them.",
-            "Voice: warm but blunt. Direct, conversational, a little wry. You tease, you call things out, you have opinions. You can be playful and slightly irreverent — mild edge and mild profanity are fine when it lands (never cruel, never slurs, never graphic).",
-            "Talk like a person talking: contractions, short sentences, the occasional fragment. Never fortune-cookie vagueness, never hedging like 'the cards may suggest', never disclaimers about being an AI, never emojis, headings, bullet lists or markdown.",
-            "Use their name and what you remember about them naturally — the way a friend would, not like you're reading a file back to them. If a pattern from past readings is repeating, say so plainly.",
+            "Voice: warm but blunt. Direct, conversational, a little wry. You tease, you call things out, you have strong opinions and you say them. You can be playful and slightly irreverent — mild edge and mild profanity are fine when it lands (never cruel, never slurs, never graphic).",
+            "Talk like a person talking out loud: contractions, short sentences, the occasional fragment, the occasional aside. Every reading is written to be spoken aloud, so keep the rhythm natural. Never fortune-cookie vagueness, never hedging like 'the cards may suggest' or 'this could mean', never disclaimers about being an AI, never emojis, headings, bullet lists or markdown.",
+            "Be specific about THEIR life, not tarot in the abstract. Name the person, the job, the situation, the pattern. Say the hard thing plainly instead of softening it.",
+            "Memory matters: use their name and what you remember naturally — the way a friend would, not like you're reading a file back to them. Call back to what they asked last time, what you told them to do, and whether it looks like they did it. If a card or a theme keeps returning across readings, say so out loud and say what it means that it keeps showing up.",
             "Do read the cards properly: for each card, say what it actually means and then tie that meaning straight to their situation. Honour reversals. Let positions talk to each other.",
             "Never predict death, illness, or legal/financial certainties; speak in patterns, choices and agency.",
           ].join(" "),
@@ -189,7 +190,7 @@ export const rememberReading = createServerFn({ method: "POST" })
       const result = streamText({
         model: gateway("google/gemini-3.6-flash"),
         system:
-          "You maintain a tarot reader's private notes about a returning querent. Output ONLY the updated notes as short dash-prefixed lines: who they are, what they keep asking about, recurring cards and themes, people and situations they've mentioned, advice already given. Merge new information into the existing notes, drop anything stale, never exceed 20 lines. No preamble, no headings.",
+          "You maintain a tarot reader's private notes about a returning querent so she can pick up exactly where she left off. Output ONLY the updated notes as short dash-prefixed lines covering: who they are and how they talk, the named people/jobs/places/situations in their life, what they keep asking about, recurring cards and themes across sittings, the advice already given and whether they seem to have acted on it, and open threads to follow up on next time. Merge new information into the existing notes, keep concrete details and names, drop anything stale, never exceed 25 lines. No preamble, no headings.",
         prompt: `Existing notes:\n${existing || "(none yet)"}\n\nNew session — they asked: "${data.intention || "no intention given"}"\nCards: ${data.cardNames.join(", ")}\nThe reading you gave them:\n${data.interpretation.slice(0, 4000)}`,
       });
       notes = (await result.text).trim().slice(0, 4000);
@@ -213,31 +214,48 @@ export const forgetOracleMemory = createServerFn({ method: "POST" })
   });
 const SpeakSchema = z.object({ text: z.string().trim().min(1).max(4000) });
 
-/** Give the Oracle a voice: returns base64 mp3 audio of her reading. */
+const VOICE_DIRECTION =
+  "Read this the way a real tarot reader talks to a friend across the table: warm, low, unhurried and intimate, with a wry half-smile. Let sentences breathe, land the pauses, vary the pace, lean in on the important lines. Never announce anything, never sound like a narrator or an announcer.";
+
+/** Give the Oracle a voice: returns base64 audio of her reading. */
 export const speakReading = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => SpeakSchema.parse(input))
   .handler(async ({ data }) => {
     const apiKey = process.env["LOVABLE_API_KEY"];
     if (!apiKey) throw new Error("The oracle has no voice configured.");
 
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/audio/speech", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "Lovable-API-Key": apiKey },
-      body: JSON.stringify({
-        model: "openai/gpt-4o-mini-tts",
-        voice: "sage",
-        input: data.text.slice(0, 4000),
-        instructions:
-          "Speak as a warm, knowing tarot reader: unhurried, low and intimate, a little wry. Let pauses land between thoughts.",
-      }),
+    const body = JSON.stringify({
+      model: "google/gemini-2.5-pro-tts",
+      contents: [{ role: "user", parts: [{ text: `${VOICE_DIRECTION}\n\n${data.text.slice(0, 4000)}` }] }],
+      generationConfig: {
+        responseModalities: ["AUDIO"],
+        speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: "Sulafat" } } },
+      },
     });
 
-    if (response.status === 429) throw new Error("The oracle needs a moment — too many voices at once.");
-    if (response.status === 402) throw new Error("The oracle's voice needs more credits.");
-    if (!response.ok) throw new Error("The oracle could not find her voice.");
+    let response: Response | null = null;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      response = await fetch("https://ai.gateway.lovable.dev/v1/audio/speech", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Lovable-API-Key": apiKey },
+        body,
+      });
+      if (response.ok) break;
+      if (response.status === 402) throw new Error("The oracle's voice needs more credits.");
+      if (response.status !== 429 && response.status < 500) break;
+      await new Promise((resolve) => setTimeout(resolve, 800 * (attempt + 1)));
+    }
+
+    if (!response || !response.ok) {
+      if (response?.status === 429) throw new Error("The oracle needs a moment — too many voices at once.");
+      throw new Error("The oracle could not find her voice.");
+    }
 
     const buffer = new Uint8Array(await response.arrayBuffer());
     let binary = "";
-    for (const byte of buffer) binary += String.fromCharCode(byte);
-    return { audio: btoa(binary), mimeType: "audio/mpeg" };
+    const step = 0x8000;
+    for (let i = 0; i < buffer.length; i += step) {
+      binary += String.fromCharCode(...buffer.subarray(i, i + step));
+    }
+    return { audio: btoa(binary), mimeType: "audio/wav" };
   });

@@ -208,32 +208,49 @@ function Index() {
     if (!chunks.length) return;
     setLoadingVoice(true);
     try {
-      const fetchChunk = (index: number) =>
-        speakReading({ data: { text: chunks[index]! } }).then(
-          ({ audio, mimeType }) => `data:${mimeType};base64,${audio}`,
-        );
+      // A single chunk failing must never end the reading — retry, then skip.
+      const fetchChunk = async (index: number): Promise<string | null> => {
+        for (let attempt = 0; attempt < 3; attempt++) {
+          try {
+            const { audio, mimeType } = await speakReading({ data: { text: chunks[index]! } });
+            return `data:${mimeType};base64,${audio}`;
+          } catch {
+            await new Promise((resolve) => window.setTimeout(resolve, 700 * (attempt + 1)));
+          }
+        }
+        return null;
+      };
 
-      let pending: Promise<string> | null = fetchChunk(0);
+      // Keep two chunks in flight so playback never waits on the network.
+      const queue: Array<Promise<string | null>> = [];
+      const enqueue = (index: number) => {
+        if (index < chunks.length) queue[index] = fetchChunk(index);
+      };
+      enqueue(0);
+      enqueue(1);
+
+      let spokeSomething = false;
       for (let index = 0; index < chunks.length; index++) {
-        const src = await pending;
+        const src = await queue[index];
         if (voiceRunRef.current !== run) return;
-        // Prefetch the next chunk while this one plays so there is no gap.
-        pending = index + 1 < chunks.length ? fetchChunk(index + 1) : null;
-        pending?.catch(() => undefined);
+        enqueue(index + 2);
+        if (!src) continue;
 
-        const element = new Audio(src ?? undefined);
+        const element = new Audio(src);
         element.preload = "auto";
         audioRef.current = element;
         setLoadingVoice(false);
         setSpeaking(true);
-        await new Promise<void>((resolve, reject) => {
+        spokeSomething = true;
+        await new Promise<void>((resolve) => {
           element.onended = () => resolve();
-          element.onerror = () => reject(new Error("The oracle's voice broke up."));
-          element.play().catch(reject);
+          element.onerror = () => resolve();
+          element.play().catch(() => resolve());
         });
         if (voiceRunRef.current !== run) return;
       }
       setSpeaking(false);
+      if (!spokeSomething) toast.error("The oracle could not find her voice.");
     } catch (error) {
       if (voiceRunRef.current !== run) return;
       setSpeaking(false);
