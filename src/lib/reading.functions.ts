@@ -75,9 +75,13 @@ Write the reading like this, all in flowing prose with no headings:
       return { interpretation: text.trim() };
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unknown error";
-      if (message.includes("429")) throw new Error("The oracle is overwhelmed right now. Try again in a moment.");
-      if (message.includes("402")) throw new Error("AI credits are exhausted. Add credits to continue readings.");
-      throw new Error("The oracle could not speak. Please try again.");
+      const status = (error as { statusCode?: number; status?: number })?.statusCode ?? (error as { status?: number })?.status;
+      if (status === 429 || message.includes("429"))
+        throw new Error("The oracle is overwhelmed right now. Try again in a moment.");
+      if (status === 402 || message.includes("402") || /credit/i.test(message))
+        throw new Error("AI credits are exhausted. Add credits to continue readings.");
+      console.error("interpretReading failed:", message);
+      throw new Error(`The oracle could not speak: ${message.slice(0, 200)}`);
     }
   });
 
