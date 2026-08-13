@@ -213,31 +213,48 @@ export const forgetOracleMemory = createServerFn({ method: "POST" })
   });
 const SpeakSchema = z.object({ text: z.string().trim().min(1).max(4000) });
 
-/** Give the Oracle a voice: returns base64 mp3 audio of her reading. */
+const VOICE_DIRECTION =
+  "Read this the way a real tarot reader talks to a friend across the table: warm, low, unhurried and intimate, with a wry half-smile. Let sentences breathe, land the pauses, vary the pace, lean in on the important lines. Never announce anything, never sound like a narrator or an announcer.";
+
+/** Give the Oracle a voice: returns base64 audio of her reading. */
 export const speakReading = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => SpeakSchema.parse(input))
   .handler(async ({ data }) => {
     const apiKey = process.env["LOVABLE_API_KEY"];
     if (!apiKey) throw new Error("The oracle has no voice configured.");
 
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/audio/speech", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "Lovable-API-Key": apiKey },
-      body: JSON.stringify({
-        model: "openai/gpt-4o-mini-tts",
-        voice: "sage",
-        input: data.text.slice(0, 4000),
-        instructions:
-          "Speak as a warm, knowing tarot reader: unhurried, low and intimate, a little wry. Let pauses land between thoughts.",
-      }),
+    const body = JSON.stringify({
+      model: "google/gemini-2.5-pro-tts",
+      contents: [{ role: "user", parts: [{ text: `${VOICE_DIRECTION}\n\n${data.text.slice(0, 4000)}` }] }],
+      generationConfig: {
+        responseModalities: ["AUDIO"],
+        speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: "Sulafat" } } },
+      },
     });
 
-    if (response.status === 429) throw new Error("The oracle needs a moment — too many voices at once.");
-    if (response.status === 402) throw new Error("The oracle's voice needs more credits.");
-    if (!response.ok) throw new Error("The oracle could not find her voice.");
+    let response: Response | null = null;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      response = await fetch("https://ai.gateway.lovable.dev/v1/audio/speech", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Lovable-API-Key": apiKey },
+        body,
+      });
+      if (response.ok) break;
+      if (response.status === 402) throw new Error("The oracle's voice needs more credits.");
+      if (response.status !== 429 && response.status < 500) break;
+      await new Promise((resolve) => setTimeout(resolve, 800 * (attempt + 1)));
+    }
+
+    if (!response || !response.ok) {
+      if (response?.status === 429) throw new Error("The oracle needs a moment — too many voices at once.");
+      throw new Error("The oracle could not find her voice.");
+    }
 
     const buffer = new Uint8Array(await response.arrayBuffer());
     let binary = "";
-    for (const byte of buffer) binary += String.fromCharCode(byte);
-    return { audio: btoa(binary), mimeType: "audio/mpeg" };
+    const step = 0x8000;
+    for (let i = 0; i < buffer.length; i += step) {
+      binary += String.fromCharCode(...buffer.subarray(i, i + step));
+    }
+    return { audio: btoa(binary), mimeType: "audio/wav" };
   });
