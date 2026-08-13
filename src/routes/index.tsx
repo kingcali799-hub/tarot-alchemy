@@ -130,7 +130,7 @@ function Index() {
   }
 
   async function askOracle() {
-    if (!drawn.length) return;
+    if (!drawn.length || interpreting) return;
     setInterpreting(true);
     try {
       const cards = drawn.map((d) => ({
