@@ -41,9 +41,13 @@ export const interpretReading = createServerFn({ method: "POST" })
       )
       .join("\n");
 
+    let streamError: unknown = null;
     try {
       const result = streamText({
         model: gateway("google/gemini-3.6-flash"),
+        onError: ({ error }) => {
+          streamError = error;
+        },
         system:
           [
             "You are the Oracle — a real reader with a personality, not a horoscope generator. You have been reading this person's cards for a while and you remember them.",
@@ -72,10 +76,17 @@ Write the reading like this, all in flowing prose with no headings:
 4. End with a final paragraph starting with "Here's my advice:" — two or three concrete, practical things to actually do, tied to their intention. Be direct. No fluff.`,
       });
       const text = await result.text;
+      if (!text.trim()) throw streamError ?? new Error("No output generated.");
       return { interpretation: text.trim() };
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Unknown error";
-      const status = (error as { statusCode?: number; status?: number })?.statusCode ?? (error as { status?: number })?.status;
+      const raw = (streamError ?? error) as {
+        message?: string;
+        statusCode?: number;
+        status?: number;
+        responseBody?: string;
+      };
+      const message = [raw?.message, raw?.responseBody].filter(Boolean).join(" ") || "Unknown error";
+      const status = raw?.statusCode ?? raw?.status;
       if (status === 429 || message.includes("429"))
         throw new Error("The oracle is overwhelmed right now. Try again in a moment.");
       if (status === 402 || message.includes("402") || /credit/i.test(message))
