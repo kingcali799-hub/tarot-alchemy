@@ -79,7 +79,7 @@ Write the reading like this, all in flowing prose with no headings:
       if (!text.trim()) throw streamError ?? new Error("No output generated.");
       return { interpretation: text.trim() };
     } catch (error) {
-      const raw = (streamErrorOf(error) ?? error) as {
+      const raw = (streamError ?? error) as {
         message?: string;
         statusCode?: number;
         status?: number;
