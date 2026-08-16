@@ -41,8 +41,8 @@ export const interpretReading = createServerFn({ method: "POST" })
       )
       .join("\n");
 
+    let streamError: unknown = null;
     try {
-      let streamError: unknown = null;
       const result = streamText({
         model: gateway("google/gemini-3.6-flash"),
         onError: ({ error }) => {
