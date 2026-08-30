@@ -1,14 +1,16 @@
-# Welcome to your Lovable project
+# Oracle's Embrace
+
+Okay, so I want to build a website and an app. They go hand in hand. They're for tarot readings. They're going to be where basically-- Think of the Oracle. You can go there and ask questions for your intention or what you need clarity on. I wanted to include every tarot reading, um, spread. I needed to include, um, tarot Egyptian cards, like all the main decks, the Isis. I also needed to include where you can move around and put your own, um, spread out. It should include all the meaning of the cards, and it should also be able to deal you the spread for any spread yourself, and it should be able to be-- have a custom spread made. Um, let's start there.
 
 This project was built with [Lovable](https://lovable.dev).
 
 ## Build with Lovable
 
-Open your project in the [Lovable editor](https://lovable.dev) and keep building.
+Continue developing this project in the [Lovable editor](https://lovable.dev/projects/520b0128-1025-47e5-adf1-cd4d89408ead).
 
 - **Ship faster**: describe what you want to build and Lovable handles the code.
-- **Stay in sync**: connect the project to GitHub and every change made in Lovable is committed straight to your repository.
-- **Full ownership**: this code is yours. Push to your repository and your changes sync back into Lovable, ready for your next prompt.
+- **Stay in sync**: every change made in Lovable is committed straight to this repository.
+- **Full ownership**: this code is yours. Push to `main` on GitHub and your changes sync back into Lovable, ready for your next prompt.
 
 ## Development
 
@@ -20,10 +22,3 @@ cd <repository-name>
 npm i
 npm run dev
 ```
-
-## Built with
-
-- TanStack Start
-- TypeScript
-- React
-- Tailwind CSS
